@@ -1,0 +1,6 @@
+{
+  "notes": [
+    "test_skew: Đã hoàn tất 100% gán nhãn người (197 mẫu, human_labels_final.csv). Baseline rating<=2 và rating<=3 đã được chấm điểm đầy đủ và ghi nhận vào metrics.csv."
+  ],
+  "invalid_policy": "wrong"
+}

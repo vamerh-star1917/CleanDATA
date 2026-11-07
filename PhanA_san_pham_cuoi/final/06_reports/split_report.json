@@ -1,0 +1,117 @@
+{
+  "script_version": "step2-v2",
+  "params": {
+    "report_dir": "../06_reports",
+    "seed": 42,
+    "n_test_main": 300,
+    "n_val": 150,
+    "n_fewshot": 60,
+    "n_customers": 5000,
+    "vip_ratio": 0.2,
+    "n_products": 10,
+    "lots_per_product": 3,
+    "start_date": "2026-10-01",
+    "days": 30
+  },
+  "input_sha256": "4612fe59f4cc38c85034ebefbc3d84f54788853679c9d3e62b5e805578d0dcff",
+  "rows_total": 9594,
+  "split_counts": {
+    "reserve": 8887,
+    "test_main": 300,
+    "test_skew": 197,
+    "validation": 150,
+    "few_shot_pool": 60
+  },
+  "label_by_split": {
+    "few_shot_pool": {
+      "positive": 30,
+      "negative": 30
+    },
+    "reserve": {
+      "negative": 5561,
+      "positive": 3326
+    },
+    "test_main": {
+      "negative": 186,
+      "positive": 114
+    },
+    "test_skew": {
+      "positive": 107,
+      "negative": 90
+    },
+    "validation": {
+      "negative": 93,
+      "positive": 57
+    }
+  },
+  "rating_by_split": {
+    "few_shot_pool": {
+      "1": 13,
+      "2": 6,
+      "3": 11,
+      "4": 1,
+      "5": 29
+    },
+    "reserve": {
+      "1": 2806,
+      "2": 1151,
+      "3": 1604,
+      "4": 61,
+      "5": 3265
+    },
+    "test_main": {
+      "1": 91,
+      "2": 42,
+      "3": 55,
+      "4": 5,
+      "5": 107
+    },
+    "test_skew": {
+      "1": 14,
+      "2": 6,
+      "3": 85,
+      "4": 27,
+      "5": 65
+    },
+    "validation": {
+      "1": 46,
+      "2": 23,
+      "3": 26,
+      "4": 2,
+      "5": 53
+    }
+  },
+  "skew_subgroups": {
+    "hi_sao_nhan_negative": 90,
+    "3sao_nhan_positive": 85,
+    "thap_sao_nhan_positive": 20,
+    "group_mate": 2
+  },
+  "vip_ratio_by_split": {
+    "few_shot_pool": 0.183,
+    "reserve": 0.195,
+    "test_main": 0.21,
+    "test_skew": 0.213,
+    "validation": 0.227
+  },
+  "n_customers_used": 4302,
+  "n_lots_used": 30,
+  "created_at_min": "2026-10-01T00:17:43+07:00",
+  "created_at_max": "2026-10-30T23:58:14+07:00",
+  "test_unaccented_rows": 300,
+  "unaccent_function_vs_aug_file": {
+    "aug_rows_with_matching_id": 1326,
+    "unaccent_fn_reproduces_aug": 1318
+  },
+  "verification": {
+    "id_unique": true,
+    "dup_group_in_one_split": true,
+    "text_norm_disjoint": true,
+    "text_no_accent_disjoint": true,
+    "customer_single_tier": true,
+    "lot_single_product": true,
+    "no_nulls_in_synthetic": true,
+    "unaccented_ids_subset_of_test_main": true,
+    "unaccented_ids_not_in_other_splits": true
+  }
+}

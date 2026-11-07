@@ -1,0 +1,15 @@
+# Phần A - Dữ liệu và phân loại: sản phẩm cuối (Bản hoàn tất)
+
+Đọc trước: `Tai_lieu_thuc_hien_PhanA_HoanTat.docx` (tổng hợp toàn bộ quá trình, giải thích sản phẩm, số liệu đo đạc thực tế, nghiệm thu hoàn tất).
+
+| Thư mục | Nội dung chính |
+|---|---|
+| **01_data** | `reviews.csv` (9.594 dòng nạp sẵn kèm 5 trường giả lập), `review_gold.csv` (nhãn chuẩn và phân chia tập), `test_unaccented.csv`, `shopee_clean.csv`, `data_dictionary.xlsx`, `preload/schema.sql`, `preload/reviews_preload.sql` |
+| **02_scenarios** | `scenario_reviews.csv` (931 dòng), `scenario_checkpoints.csv` (22 điểm kiểm tra tune/eval cho WF2), `scenario_report.json` |
+| **03_prompt** | `prompt_v1.json`, `v2.json`, `v3.json` (đã chọn và đóng băng **Prompt v3**), `output_schema.json`, `issue_type_catalog.json`, `fewshot_examples.json` |
+| **04_labeling** | Đã hoàn tất 100%: 4 phiếu gán nhãn, `kappa_report.csv` (Cohen's Kappa = 0.9133 & 1.0), `to_reconcile.csv` (6 ca đã đối soát), `human_labels_final.csv` (197 nhãn người) |
+| **05_scripts** | Toàn bộ script dữ liệu, script đánh giá, và script tự động hóa trọn gói `chay_gemini_va_danh_gia.py` |
+| **06_reports** | `metrics.csv` (đầy đủ chỉ số trên Validation, Test chính và Test lệch), `phan_tich_loi.md`, các file `errors_*.csv` (đã điền category & notes), `bao_cao_kiem_tra_du_lieu.md`, các ma trận nhầm lẫn PNG |
+
+- **Chạy thực nghiệm Gemini 1-click:** Chạy file `chay_phan_a.bat` ở thư mục gốc và nhập API Key.
+- **Tái dựng toàn bộ từ dữ liệu thô:** `bash 05_scripts/run_pipeline.sh <thư mục chứa shopee_reviews_dataset.jsonl và aug_unaccented_reviews.jsonl>`

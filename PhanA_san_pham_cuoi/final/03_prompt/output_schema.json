@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review_classification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "label",
+    "issue_type",
+    "reason"
+  ],
+  "properties": {
+    "label": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "negative"
+      ]
+    },
+    "issue_type": {
+      "type": "string",
+      "enum": [
+        "packaging_damage",
+        "product_defect",
+        "poor_quality",
+        "wrong_or_missing_item",
+        "not_as_described",
+        "delivery_issue",
+        "service_issue",
+        "other",
+        "none"
+      ]
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 300
+    }
+  },
+  "x-propertyOrdering": [
+    "label",
+    "issue_type",
+    "reason"
+  ]
+}

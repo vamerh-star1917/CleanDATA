@@ -1,0 +1,106 @@
+{
+  "params": {
+    "seed": 42,
+    "window_hours": 4,
+    "ref_threshold": 5,
+    "bg_rate": 0.35,
+    "bg_neg_share": 0.25,
+    "n_singles": 8
+  },
+  "rows_by_set": {
+    "tune": 497,
+    "eval": 434
+  },
+  "rows_by_set_scenario": {
+    "eval": {
+      "BG": 383,
+      "BG_single": 8,
+      "K2": 8,
+      "K4": 8,
+      "K1": 7,
+      "K7": 7,
+      "K5a": 5,
+      "K5b": 4,
+      "K3": 3,
+      "K0b": 1
+    },
+    "tune": {
+      "BG": 446,
+      "BG_single": 8,
+      "K2": 8,
+      "K4": 8,
+      "K1": 7,
+      "K7": 7,
+      "K5a": 5,
+      "K5b": 4,
+      "K3": 3,
+      "K0b": 1
+    }
+  },
+  "issue_type_by_set": {
+    "eval": {
+      "none": 299,
+      "other": 58,
+      "packaging_damage": 44,
+      "poor_quality": 13,
+      "wrong_or_missing_item": 9,
+      "product_defect": 4,
+      "not_as_described": 3,
+      "delivery_issue": 3,
+      "service_issue": 1
+    },
+    "tune": {
+      "none": 339,
+      "other": 70,
+      "packaging_damage": 44,
+      "poor_quality": 16,
+      "wrong_or_missing_item": 13,
+      "delivery_issue": 6,
+      "product_defect": 5,
+      "not_as_described": 2,
+      "service_issue": 2
+    }
+  },
+  "label_by_set": {
+    "eval": {
+      "positive": 299,
+      "negative": 135
+    },
+    "tune": {
+      "positive": 339,
+      "negative": 158
+    }
+  },
+  "checkpoints": 22,
+  "expected_alert_true": [
+    "T-K1",
+    "T-K2",
+    "T-K5a",
+    "E-K1",
+    "E-K2",
+    "E-K5a"
+  ],
+  "focus_lots": {
+    "tune": [
+      "L01-1",
+      "L01-2",
+      "L02-3",
+      "L03-1",
+      "L03-2",
+      "L03-3",
+      "L05-1"
+    ],
+    "eval": [
+      "L06-1",
+      "L06-3",
+      "L07-3",
+      "L08-1",
+      "L10-1",
+      "L10-2",
+      "L10-3"
+    ]
+  },
+  "source_reviews_unique": 931,
+  "packaging_pool_size": 936,
+  "checks": "pass (nguồn duy nhất, trong reserve, kỳ vọng khớp thiết kế, lô trọng tâm không trùng)"
+}

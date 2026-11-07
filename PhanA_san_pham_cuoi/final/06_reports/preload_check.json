@@ -1,0 +1,30 @@
+{
+  "engine": "SQLite (mô phỏng) & PostgreSQL/Supabase (đã nạp và kiểm tra thành công)",
+  "postgresql_supabase_verified": true,
+  "counts": {
+    "reviews": 9594,
+    "review_gold": 9594,
+    "scenario_reviews": 931,
+    "scenario_checkpoints": 22,
+    "issue_types": 9
+  },
+  "fk_orphans_review_gold": 0,
+  "fk_orphans_scenario_issue_type": 0,
+  "review_text_differs_from_csv": 0,
+  "rows_with_newline": 1,
+  "rows_with_apostrophe": 19,
+  "vip_share": 0.196,
+  "split_counts": {
+    "few_shot_pool": 60,
+    "reserve": 8887,
+    "test_main": 300,
+    "test_skew": 197,
+    "validation": 150
+  },
+  "scenario_sql_crosscheck": {
+    "checkpoints": 22,
+    "mismatches": 0,
+    "mismatch_ids": []
+  },
+  "all_passed": true
+}

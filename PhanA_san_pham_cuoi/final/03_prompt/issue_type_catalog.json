@@ -1,0 +1,14 @@
+{
+  "status": "ĐỀ XUẤT - chờ nhóm chốt ở CH01",
+  "issue_types": {
+    "packaging_damage": "Bao bì/hộp/túi/nắp bị rách, móp, vỡ, rò rỉ khi nhận hàng",
+    "product_defect": "Sản phẩm bị hỏng, lỗi, gãy hoặc không dùng được",
+    "poor_quality": "Chất lượng kém hơn kỳ vọng (chất liệu, mùi, hiệu quả, hạn dùng) nhưng không phải hỏng rõ ràng",
+    "wrong_or_missing_item": "Giao sai, thiếu hàng hoặc thiếu quà tặng kèm",
+    "not_as_described": "Không giống mô tả/hình ảnh/quảng cáo, hàng cũ hoặc nghi hàng giả",
+    "delivery_issue": "Giao hàng chậm hoặc vấn đề do vận chuyển",
+    "service_issue": "Thái độ phục vụ, không phản hồi, bảo hành, hoàn tiền",
+    "other": "Có phàn nàn nhưng không thuộc các nhóm trên",
+    "none": "Không có phàn nàn (dùng cho review positive)"
+  }
+}

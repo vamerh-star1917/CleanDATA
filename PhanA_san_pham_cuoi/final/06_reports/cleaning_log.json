@@ -1,0 +1,79 @@
+{
+  "near_dup_threshold": 0.9,
+  "steps": [
+    {
+      "step": "1. Đọc file gốc",
+      "rows": 9599,
+      "note": "dòng lỗi JSON: 0"
+    },
+    {
+      "step": "2. Loại review rỗng/thiếu trường",
+      "rows": 9599,
+      "note": "loại 0"
+    },
+    {
+      "step": "3. Loại văn bản trùng nhưng khác nhãn",
+      "rows": 9599,
+      "note": "loại 0"
+    },
+    {
+      "step": "4. Loại bản trùng văn bản (giữ bản đầu)",
+      "rows": 9594,
+      "note": "loại 5"
+    },
+    {
+      "step": "5. Gom nhóm gần trùng (không xóa)",
+      "rows": 9594,
+      "note": "42 nhóm, 105 dòng"
+    }
+  ],
+  "id_duplicates": 0,
+  "label_values": {
+    "negative": 5965,
+    "positive": 3634
+  },
+  "rating_values": {
+    "1": 2972,
+    "2": 1230,
+    "3": 1782,
+    "4": 96,
+    "5": 3519
+  },
+  "conflicting_label_text_groups": 0,
+  "near_dup_groups_size_ge2": 42,
+  "near_dup_rows_in_groups": 105,
+  "aug": {
+    "rows": 1348,
+    "id_in_main": 1326,
+    "text_in_main_after_accent_strip": 1315,
+    "id_not_in_main": 22,
+    "id_not_in_main_and_text_not_in_main": 20
+  },
+  "label_after_clean": {
+    "negative": 5960,
+    "positive": 3634
+  },
+  "flag_counts": {
+    "khop": 9385,
+    "hi_sao_nhan_negative": 95,
+    "3sao_nhan_positive": 91,
+    "thap_sao_nhan_positive": 23
+  },
+  "short_review_lt30": 338,
+  "baseline_descriptive_on_all_clean_rows": {
+    "rating<=2": {
+      "accuracy": 0.8115,
+      "precision_neg": 0.9945,
+      "recall_neg": 0.7005,
+      "FP": 23,
+      "FN": 1785
+    },
+    "rating<=3": {
+      "accuracy": 0.9782,
+      "precision_neg": 0.9809,
+      "recall_neg": 0.9841,
+      "FP": 114,
+      "FN": 95
+    }
+  }
+}
