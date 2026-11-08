@@ -60,7 +60,7 @@ def send_payload(url, payload):
 
 def main():
     parser = argparse.ArgumentParser(description="Test n8n Webhook Trigger")
-    parser.add_argument("--url", default="http://localhost:5678/webhook-test/crm-webhook-input", help="n8n Webhook URL")
+    parser.add_argument("--url", default="https://vamerg.app.n8n.cloud/webhook-test/crm-webhook-input", help="n8n Webhook URL")
     parser.add_argument("--type", choices=["vip", "pos", "both"], default="vip", help="Loại review mẫu để gửi")
     args = parser.parse_args()
 
