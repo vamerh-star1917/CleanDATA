@@ -4,7 +4,7 @@ cd /d "%~dp0"
 
 echo ====================================================================
 echo    CHUONG TRINH CHAY TU DONG THUC NGHIEM GEMINI 3.8 (PHAN A)
-echo    Mo hinh su dung: Gemini 3.8 Flash (gemini-3.8-flash)
+echo    Mo hinh: Gemini 3.8 Flash | Prompt: v3 (Phuong an B)
 echo ====================================================================
 echo.
 

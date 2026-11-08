@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Script trọn gói tự động:
-1. Gọi Gemini API (chốt mô hình Gemini 3.8 Flash - gemini-3.8-flash, chuyển đổi từ Gemini 2.5).
-2. Chạy Validation trên 3 phiên bản Prompt (v1, v2, v3).
-3. Đánh giá và tự động chọn phiên bản có Macro F1 cao nhất (sau đó là Recall Negative).
-4. Chạy trên Test chính (r1, r2 để đo nhất quán), Test không dấu, và Test lệch.
-5. Cập nhật kết quả vào 06_reports/metrics.csv.
+1. Gọi Gemini API (chốt mô hình Gemini 3.8 Flash - gemini-3.8-flash).
+2. Chốt thẳng Prompt v3 (Few-shot + 5 rules xử lý ca khó), bỏ qua so sánh v1/v2 trên Validation theo Phương án B để tiết kiệm tối đa quota API.
+3. Đánh giá trực tiếp Prompt v3 trên Test chính (r1, r2 để đo nhất quán), Test không dấu (đo độ bền), và Test lệch (chấm với 197 nhãn người).
+4. Cập nhật kết quả vào 06_reports/metrics.csv và lưu cache SQLite chống lặp phí.
 
 Cách dùng:
   python chay_gemini_va_danh_gia.py --api-key YOUR_GEMINI_API_KEY
@@ -267,6 +266,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-key", default=os.environ.get("GEMINI_API_KEY"))
     parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
+    parser.add_argument("--prompt-version", default="v3", choices=["v1", "v2", "v3"], help="Phiên bản prompt chốt đánh giá (mặc định: v3)")
+    parser.add_argument("--include-val", action="store_true", default=False, help="Chạy cả tập Validation (mặc định False theo Phương án B để tiết kiệm quota)")
     args = parser.parse_args()
     
     if args.model in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]:
@@ -278,49 +279,37 @@ def main():
         sys.exit(1)
         
     print(f"=== BẮT ĐẦU CHẠY THỬ NGHIỆM GEMINI ({args.model}) ===")
-    
-    # 1. Chạy 3 prompt trên Validation
-    val_results = {}
-    for ver in ["v1", "v2", "v3"]:
-        rows = run_split(args.api_key, args.model, "validation", ver, "r1")
-        val_results[ver] = rows
-        
-    # Nạp gold validation
-    gold_val = {}
-    with open(DIR_DATA / "review_gold.csv", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            if r["split"] == "validation":
-                gold_val[r["review_id"]] = r["label_original"]
-                
-    # Đánh giá 3 prompt
-    print("\n=== KẾT QUẢ SO SÁNH 3 PROMPT TRÊN VALIDATION ===")
-    best_ver = "v3"
-    best_f1 = -1
-    best_recall = -1
-    
+    best_ver = args.prompt_version
     metrics_entries = []
-    for ver, rows in val_results.items():
-        entry = evaluate_predictions(gold_val, rows, "validation", f"gemini_{ver}")
-        metrics_entries.append(entry)
-        f1 = float(entry["macro_f1"])
-        rc = float(entry["recall_negative"])
-        print(f"Prompt {ver}: Macro F1 = {f1:.4f} | Recall Negative = {rc:.4f} | Accuracy = {entry['accuracy']}")
-        if f1 > best_f1 or (f1 == best_f1 and rc > best_recall):
-            best_f1 = f1
-            best_recall = rc
-            best_ver = ver
-            
-    print(f"\n=> PHIÊN BẢN CHIẾN THẮNG: Prompt {best_ver} (Macro F1 = {best_f1:.4f})")
-    print(f"Tiến hành đóng băng Prompt {best_ver} và chạy trên các tập Test...")
     
-    # 2. Chạy trên test_main (r1 và r2 để đo nhất quán)
+    # 1. Chạy Validation nếu có cờ --include-val
+    if args.include_val:
+        print(f"\n[Validation] Đang chạy đánh giá Prompt {best_ver} trên tập Validation (150 mẫu)...")
+        rows_val = run_split(args.api_key, args.model, "validation", best_ver, "r1")
+        gold_val = {}
+        with open(DIR_DATA / "review_gold.csv", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                if r["split"] == "validation":
+                    gold_val[r["review_id"]] = r["label_original"]
+        entry_val = evaluate_predictions(gold_val, rows_val, "validation", f"gemini_{best_ver}")
+        metrics_entries.append(entry_val)
+        print(f"Validation ({best_ver}): Macro F1 = {float(entry_val['macro_f1']):.4f} | Recall Neg = {float(entry_val['recall_negative']):.4f} | Acc = {entry_val['accuracy']}")
+    else:
+        print(f"\n[Phuong an B] Da chot thang Prompt {best_ver.upper()} (Few-shot + 5 rules ca kho), bo qua so sanh Validation de tiet kiem toi da 450 API calls!")
+        print(f"Tien hanh danh gia truc tiep Prompt {best_ver.upper()} tren cac tap Test...")
+    
+    # 2. Chạy trên test_main (r1 và r2 để đo nhất quán A10)
+    print(f"\n[1/4] Chạy Test chính (300 mẫu) - Lần 1 (r1)...")
     rows_tm_r1 = run_split(args.api_key, args.model, "test_main", best_ver, "r1")
+    print(f"\n[2/4] Chạy Test chính (300 mẫu) - Lần 2 (r2, đo tính nhất quán)...")
     rows_tm_r2 = run_split(args.api_key, args.model, "test_main", best_ver, "r2")
     
-    # 3. Chạy trên test_unaccented
+    # 3. Chạy trên test_unaccented (đo độ bền)
+    print(f"\n[3/4] Chạy Test không dấu (300 mẫu, đo độ bền)...")
     rows_unacc = run_split(args.api_key, args.model, "test_unaccented", best_ver, "r1")
     
-    # 4. Chạy trên test_skew
+    # 4. Chạy trên test_skew (chấm với 197 nhãn người)
+    print(f"\n[4/4] Chạy Test lệch (197 mẫu, chấm với nhãn người gán độc lập)...")
     rows_skew = run_split(args.api_key, args.model, "test_skew", best_ver, "r1")
     
     # Đánh giá các tập Test
