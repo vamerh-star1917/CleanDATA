@@ -1,0 +1,654 @@
+{
+  "name": "CRM",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "crm-webhook-input",
+        "options": {}
+      },
+      "name": "1. Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [
+        0,
+        160
+      ],
+      "id": "0ef91543-68e8-44c8-a2c2-29c533256d1c",
+      "typeVersion": 2.1,
+      "webhookId": "cd2958b3-7a51-4fdd-a1b9-334faded0917"
+    },
+    {
+      "parameters": {
+        "schema": "public",
+        "table": "reviews",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('1. Webhook Trigger').item.json.body.review_id || $json.body.review_id }}",
+            "review_text": "={{ $('1. Webhook Trigger').item.json.body.review_text || $json.body.review_text }}",
+            "rating": "={{ $('1. Webhook Trigger').item.json.body.rating || $json.body.rating }}",
+            "customer_id": "={{ $('1. Webhook Trigger').item.json.body.customer_id || $json.body.customer_id }}",
+            "customer_tier": "={{ $('1. Webhook Trigger').item.json.body.customer_tier || $json.body.customer_tier }}",
+            "product_id": "={{ $('1. Webhook Trigger').item.json.body.product_id || $json.body.product_id }}",
+            "lot_id": "={{ $('1. Webhook Trigger').item.json.body.lot_id || $json.body.lot_id }}",
+            "created_at": "={{ $('1. Webhook Trigger').item.json.body.created_at || $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "2. Save Raw Review",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        192,
+        160
+      ],
+      "id": "a4c61434-5f8d-422b-bf7b-0f2785aeab29",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "Yh7jE2gGXMj9943g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Phân loại cảm xúc nhanh theo Baseline số sao (rating <= 2 là Negative, còn lại Positive)\nconst input = $('1. Webhook Trigger').first().json.body || $('1. Webhook Trigger').first().json;\nconst rating = parseInt(input.rating || 5);\nconst sentiment = rating <= 2 ? \"Negative\" : \"Positive\";\n\nreturn [{\n  json: {\n    ...input,\n    sentiment: sentiment\n  }\n}];"
+      },
+      "name": "3. T1 Sentiment API",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        400,
+        160
+      ],
+      "id": "8b93361e-7471-4c09-ab09-85a3cffb5c75",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "1",
+                    "leftValue": "={{ $json.sentiment }}",
+                    "rightValue": "Positive",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "2",
+                    "leftValue": "={{ $json.sentiment }}",
+                    "rightValue": "Negative",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "4. Sentiment Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        608,
+        160
+      ],
+      "id": "0a4794d6-4dd1-4c46-9d61-ef645831accf",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "operation": "insert",
+        "schema": "public",
+        "table": "predictions",
+        "options": {},
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('1. Webhook Trigger').item.json.body.review_id || $json.body.review_id }}",
+            "sentiment": "Positive",
+            "model_name": "rating_baseline",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "name": "Positive - Update DB",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        816,
+        0
+      ],
+      "id": "8974bbeb-2be5-4c09-a154-d150122bf2ee",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "Yh7jE2gGXMj9943g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "1",
+                    "leftValue": "={{ $('1. Webhook Trigger').item.json.customer_tier }}",
+                    "rightValue": "VIP",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "2",
+                    "leftValue": "={{ $('1. Webhook Trigger').item.json.customer_tier }}",
+                    "rightValue": "Regular",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "5. Tier Switch",
+      "type": "n8n-nodes-base.switch",
+      "position": [
+        816,
+        320
+      ],
+      "id": "f604bf2d-bcd8-4f4f-9db8-6534dd0bbd7b",
+      "typeVersion": 3.4
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop VIP",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        1040,
+        208
+      ],
+      "id": "8091bc23-db67-4c07-a585-a782620a8792",
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "name": "Wait VIP",
+      "type": "n8n-nodes-base.wait",
+      "position": [
+        1264,
+        208
+      ],
+      "id": "98d6cc3d-a205-4bb8-9e7b-69a756e82795",
+      "typeVersion": 1.1,
+      "webhookId": "960ee3c4-7ba2-4965-a4a7-f72ef6bd85cb"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "YOUR_ANTHROPIC_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-5-sonnet-20240620"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"Phân tích đánh giá VIP: {{ $('1. Webhook Trigger').item.json.review_text }}. Trả về JSON chứa issue_type, reason, response_draft.\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1024"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "6A. Claude VIP",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1456,
+        208
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "id": "d320bd13-bdf3-41c5-92aa-c5cc22f9345f",
+      "typeVersion": 4.3
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Loop Reg",
+      "type": "n8n-nodes-base.splitInBatches",
+      "position": [
+        1040,
+        464
+      ],
+      "id": "c815a2fb-0910-4041-bed2-e4f2171ad328",
+      "typeVersion": 3
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "name": "Wait Reg",
+      "type": "n8n-nodes-base.wait",
+      "position": [
+        1264,
+        464
+      ],
+      "id": "2d8c3da2-0224-44c6-be6b-655e7cc9934b",
+      "typeVersion": 1.1,
+      "webhookId": "3ada913a-13ab-4e47-8e77-1e56d1316390"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            },
+            {
+              "name": "x-api-key",
+              "value": "YOUR_ANTHROPIC_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "claude-3-5-sonnet-20240620"
+            },
+            {
+              "name": "messages",
+              "value": "=[{\"role\": \"user\", \"content\": \"Phân tích đánh giá Regular: {{ $('1. Webhook Trigger').item.json.review_text }}. Trả về JSON chứa issue_type, reason, response_draft.\"}]"
+            },
+            {
+              "name": "max_tokens",
+              "value": "1024"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "6B. Claude Regular",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [
+        1456,
+        464
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "id": "0af1a0fd-38e1-46af-8612-9dff4d462ead",
+      "typeVersion": 4.3
+    },
+    {
+      "parameters": {
+        "jsCode": "for (const item of $input.all()) {\n  try {\n    const rawText = item.json.content?.[0]?.text || item.json.text || \"{}\";\n    const cleanStr = rawText.replace(/```json/gi, '').replace(/```/gi, '').trim();\n    const parsed = JSON.parse(cleanStr);\n    \n    item.json.issue_type = parsed.issue_type || \"other\";\n    item.json.reason = parsed.reason || \"Không xác định được nguyên nhân cụ thể\";\n    item.json.response_draft = parsed.response_draft || \"Cảm ơn bạn đã phản hồi, shop sẽ kiểm tra lại.\";\n  } catch (err) {\n    item.json.issue_type = \"other\";\n    item.json.reason = \"Cần nhân viên kiểm tra lại phản hồi\";\n    item.json.response_draft = \"Dạ shop đã nhận được thông tin phản hồi và đang tiến hành xử lý cho quý khách.\";\n  }\n}\nreturn $input.all();"
+      },
+      "name": "7. JS Validate Schema",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1728,
+        320
+      ],
+      "id": "52ae26df-e443-41bf-a023-5cfd86e94812",
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "schema": "public",
+        "table": "response_drafts",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "review_id": "={{ $('1. Webhook Trigger').item.json.body.review_id || $('1. Webhook Trigger').item.json.review_id }}",
+            "customer_id": "={{ $('1. Webhook Trigger').item.json.body.customer_id || $('1. Webhook Trigger').item.json.customer_id }}",
+            "customer_tier": "={{ $('1. Webhook Trigger').item.json.body.customer_tier || $('1. Webhook Trigger').item.json.customer_tier }}",
+            "issue_type": "={{ $json.issue_type }}",
+            "reason": "={{ $json.reason }}",
+            "response_draft": "={{ $json.response_draft }}",
+            "status": "pending_approval",
+            "created_at": "={{ $now }}"
+          },
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "8. Save Draft",
+      "type": "n8n-nodes-base.postgres",
+      "position": [
+        1936,
+        320
+      ],
+      "id": "e2b0b02b-3d68-4986-b4fb-0904bf4d84db",
+      "typeVersion": 2.6,
+      "credentials": {
+        "postgres": {
+          "id": "Yh7jE2gGXMj9943g",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "8062370014",
+        "text": "=Cảnh báo Đánh giá Tiêu cực!\nKhách hàng: {{ $('1. Webhook Trigger').item.json.customer_name }}\nVấn đề: {{ $json.issue_type }}\nLý do: {{ $json.reason }}\n\nDự thảo phản hồi: {{ $json.response_draft }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "Duyệt",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "Chỉnh sửa",
+                    "additionalFields": {}
+                  },
+                  {
+                    "text": "Từ chối",
+                    "additionalFields": {}
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {}
+      },
+      "name": "9. Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "position": [
+        2160,
+        320
+      ],
+      "id": "59f96b2b-df3f-481e-85ad-9954e35f2875",
+      "typeVersion": 1.2,
+      "webhookId": "0d4cb7f1-1f98-4f0a-90ed-d8423a6a1dc4",
+      "credentials": {
+        "telegramApi": {
+          "id": "yurPnMs4aeV5PjA9",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "2. Save Raw Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Save Raw Review": {
+      "main": [
+        [
+          {
+            "node": "3. T1 Sentiment API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. T1 Sentiment API": {
+      "main": [
+        [
+          {
+            "node": "4. Sentiment Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Sentiment Switch": {
+      "main": [
+        [
+          {
+            "node": "Positive - Update DB",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "5. Tier Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Tier Switch": {
+      "main": [
+        [
+          {
+            "node": "Loop VIP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Reg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop VIP": {
+      "main": [
+        [
+          {
+            "node": "Wait VIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait VIP": {
+      "main": [
+        [
+          {
+            "node": "6A. Claude VIP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6A. Claude VIP": {
+      "main": [
+        [
+          {
+            "node": "7. JS Validate Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Reg": {
+      "main": [
+        [
+          {
+            "node": "Wait Reg",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Reg": {
+      "main": [
+        [
+          {
+            "node": "6B. Claude Regular",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6B. Claude Regular": {
+      "main": [
+        [
+          {
+            "node": "7. JS Validate Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. JS Validate Schema": {
+      "main": [
+        [
+          {
+            "node": "8. Save Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Save Draft": {
+      "main": [
+        [
+          {
+            "node": "9. Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "31e00b7d-ca0e-4011-8ffa-08a944efba03",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "8e0f9f1dd0208aabd2f9d02a4272d422ec7bf20a0f23ef37030713de1acf8fcf"
+  },
+  "nodeGroups": [],
+  "id": "j9LD72SdWN3ybVAi",
+  "tags": []
+}
