@@ -67,6 +67,6 @@ w("| Tập | Hệ thống | n | Accuracy | Macro F1 | Recall Negative | CI 95% R
 for r in mt:
     w(f"| {r['split']} | {r['system']} | {int(float(r['n']))} | {float(r['accuracy']):.4f} | {float(r['macro_f1']):.4f} | {float(r['recall_negative']):.4f} | {r['recall_negative_ci95_lo']}-{r['recall_negative_ci95_hi']} | {float(r['precision_negative']):.4f} |")
 w("\n- **Test lệch:** Đã hoàn thành 100% gán nhãn người (197 mẫu, 4 rater, Cohen's Kappa = 0.9133 & 1.0000, tệp `04_labeling/human_labels_final.csv`). Điểm baseline đã chấm thật và thể hiện rõ điểm yếu chí tử của mô hình dựa vào số sao (Recall Neg chỉ đạt 10.87% - 23.91%).")
-w("- **Gemini:** Đã đóng băng Prompt v3 (Few-shot + 5 rules xử lý ca khó) và đóng gói sẵn sàng thực thi tự động qua tệp `chay_phan_a.bat`.")
+w("- **Gemini:** Chốt chính thức sử dụng mô hình **Gemini 3.8 Flash** (`gemini-3.8-flash`) để đánh giá toàn diện (nâng cấp và chuyển đổi từ bản 2.5 trước đây). Đã đóng băng Prompt v3 (Few-shot + 5 rules xử lý ca khó) và đóng gói sẵn sàng thực thi tự động qua tệp `chay_phan_a.bat` hoặc script `05_scripts/chay_gemini_va_danh_gia.py`.")
 (R / "bao_cao_kiem_tra_du_lieu.md").write_text("\n".join(L) + "\n", encoding="utf-8")
 print("Đã cập nhật thành công:", R / "bao_cao_kiem_tra_du_lieu.md")

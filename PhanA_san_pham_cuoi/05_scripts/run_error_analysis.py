@@ -102,7 +102,7 @@ Dựa trên kết quả đo đạc của hai baseline:
 - **Ví dụ điển hình:**
   > **Review `35851470890` (4 sao):**
   > *"Dầu gội thì đầy... Mà shop ko bọc được cái chống sốc vào à. Thấy nhiều ng phản ánh việc này lắm rồi mà vẫn ko rút kinh nghiệm à... Shop lớn mà khâu đóng gói còn tệ hơn cả điểm kiểm tra môn chủ nghĩa xã hội của t nữa🙃. Mong shop sau chuẩn bị hàng có tâm hơn"*
-- **Hạn chế của Baseline:** Baseline chỉ nhìn vào số sao (4 sao $\ge$ 3) nên tự động gán là Positive $\rightarrow$ **Bỏ sót hoàn toàn sự cố đóng gói nghiêm trọng**. Đây là lý do cốt lõi cần LLM (Gemini/Claude) có khả năng hiểu ngữ dụng học (pragmatics).
+- **Hạn chế của Baseline:** Baseline chỉ nhìn vào số sao (4 sao $\ge$ 3) nên tự động gán là Positive $\rightarrow$ **Bỏ sót hoàn toàn sự cố đóng gói nghiêm trọng**. Đây là lý do cốt lõi cần LLM tiên tiến như **Gemini 3.8 Flash** (`gemini-3.8-flash`) có khả năng hiểu ngữ dụng học (pragmatics).
 
 ---
 
@@ -139,7 +139,7 @@ Dựa trên kết quả đo đạc của hai baseline:
 ## 3. Kết luận & Khuyến nghị cho Bộ phân loại AI
 1. **Baseline rating <= 2** bị điểm yếu chí mạng là **Recall Negative thấp (70.4%)**, bỏ sót tới 55 review 3 sao chứa phàn nàn bao bì/chất lượng.
 2. **Baseline rating <= 3** đạt độ chính xác cao trên bề mặt (96.7%), nhưng **hoàn toàn bất lực trước các ca mỉa mai và khen chê lẫn lộn** (như ca 35851470890 và 75550701447).
-3. **Giá trị vượt trội của Gemini/LLM:** Khả năng đọc hiểu nội dung thực chất, bóc tách chính xác loại sự cố (`issue_type`) và xử lý các ca mỉa mai phức tạp mà không bị phụ thuộc vào số sao.
+3. **Giá trị vượt trội của Gemini 3.8 Flash / LLM:** Chốt sử dụng mô hình **Gemini 3.8 Flash** (`gemini-3.8-flash`) (thay thế cho 2.5) mang lại khả năng đọc hiểu nội dung thực chất, bóc tách chính xác loại sự cố (`issue_type`) và xử lý chuẩn xác các ca mỉa mai phức tạp mà không bị phụ thuộc vào số sao.
 """
     out_path = DIR_REPORTS / "phan_tich_loi.md"
     out_path.write_text(report_md, encoding="utf-8")

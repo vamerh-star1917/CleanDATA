@@ -3,7 +3,8 @@ setlocal
 cd /d "%~dp0"
 
 echo ====================================================================
-echo        CHUONG TRINH CHAY TU DONG THUC NGHIEM GEMINI (PHAN A)
+echo    CHUONG TRINH CHAY TU DONG THUC NGHIEM GEMINI 3.8 (PHAN A)
+echo    Mo hinh su dung: Gemini 3.8 Flash (gemini-3.8-flash)
 echo ====================================================================
 echo.
 
@@ -37,7 +38,7 @@ echo Da tim thay script: %SCRIPT%
 echo Dang bat dau chay thuc nghiem toan bo cac tap du lieu...
 echo.
 
-python "%SCRIPT%" --api-key "%KEY%"
+python "%SCRIPT%" --api-key "%KEY%" --model "gemini-3.8-flash"
 
 echo.
 echo ====================================================================

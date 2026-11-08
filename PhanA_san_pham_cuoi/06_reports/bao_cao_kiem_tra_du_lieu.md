@@ -53,7 +53,7 @@ Cờ lệch: {'khop': 9385, 'hi_sao_nhan_negative': 95, '3sao_nhan_positive': 91
 - Kiểm tra: pass (nguồn duy nhất, trong reserve, kỳ vọng khớp thiết kế, lô trọng tâm không trùng).
 
 ## 7. Kiểm tra file nạp CSDL & Toàn vẹn dữ liệu
-- **Kiểm tra SQLite:** `verify_preload.py` xác nhận số dòng: `{'reviews': 9594, 'review_gold': 9594, 'scenario_reviews': 931, 'scenario_checkpoints': 22, 'issue_types': 9}`; khóa ngoại mồ côi: 0; văn bản khác CSV: 0; kiểm tra chéo kịch bản bằng GROUP BY: 0 lệch trên 22 điểm.
+- **Kiểm tra SQLite:** Môi trường kiểm tra: SQLite (mô phỏng) & PostgreSQL/Supabase (đã nạp và kiểm tra thành công). Số dòng: {'reviews': 9594, 'review_gold': 9594, 'scenario_reviews': 931, 'scenario_checkpoints': 22, 'issue_types': 9}; khóa ngoại mồ côi: 0; văn bản khác CSV: 0; kiểm tra chéo kịch bản bằng GROUP BY: 0 lệch trên 22 điểm.
 - **Kiểm tra PostgreSQL (Supabase):** Đã nạp thành công và xác nhận toàn bộ 6 bảng trực tiếp trên môi trường PostgreSQL (Supabase), cấu trúc khóa ngoại và phân quyền hoạt động ổn định, sẵn sàng kết nối n8n.
 
 ## 8. Kết quả baseline theo số sao (đã đo đạc thực tế)
@@ -62,9 +62,9 @@ Cờ lệch: {'khop': 9385, 'hi_sao_nhan_negative': 95, '3sao_nhan_positive': 91
 | validation | baseline_rating<=2 | 150 | 0.8267 | 0.8256 | 0.7312 | 0.6332-0.8108 | 0.9855 |
 | validation | baseline_rating<=3 | 150 | 0.9733 | 0.9715 | 0.9892 | 0.9416-0.9981 | 0.9684 |
 | test_main | baseline_rating<=2 | 300 | 0.8100 | 0.8092 | 0.7043 | 0.6351-0.7652 | 0.9850 |
-| test_main | baseline_rating<=3 | 300 | 0.9667 | 0.9645 | 0.9785 | 0.9460-0.9916 | 0.9681 |
+| test_main | baseline_rating<=3 | 300 | 0.9667 | 0.9645 | 0.9785 | 0.946-0.9916 | 0.9681 |
 | test_skew | baseline_rating<=2 | 197 | 0.7157 | 0.4904 | 0.1087 | 0.0473-0.2304 | 0.2500 |
 | test_skew | baseline_rating<=3 | 197 | 0.3452 | 0.3074 | 0.2391 | 0.1391-0.3794 | 0.1048 |
 
 - **Test lệch:** Đã hoàn thành 100% gán nhãn người (197 mẫu, 4 rater, Cohen's Kappa = 0.9133 & 1.0000, tệp `04_labeling/human_labels_final.csv`). Điểm baseline đã chấm thật và thể hiện rõ điểm yếu chí tử của mô hình dựa vào số sao (Recall Neg chỉ đạt 10.87% - 23.91%).
-- **Gemini:** Đã đóng băng Prompt v3 (Few-shot + 5 rules xử lý ca khó) và đóng gói sẵn sàng thực thi tự động qua tệp `chay_phan_a.bat`.
+- **Gemini:** Chốt chính thức sử dụng mô hình **Gemini 3.8 Flash** (`gemini-3.8-flash`) để đánh giá toàn diện (nâng cấp và chuyển đổi từ bản 2.5 trước đây). Đã đóng băng Prompt v3 (Few-shot + 5 rules xử lý ca khó) và đóng gói sẵn sàng thực thi tự động qua tệp `chay_phan_a.bat` hoặc script `05_scripts/chay_gemini_va_danh_gia.py`.

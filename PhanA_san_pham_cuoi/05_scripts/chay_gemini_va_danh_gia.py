@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Script trọn gói tự động:
-1. Gọi Gemini API (qua REST API chuẩn, không phụ thuộc thư viện ngoài).
+1. Gọi Gemini API (chốt mô hình Gemini 3.8 Flash - gemini-3.8-flash, chuyển đổi từ Gemini 2.5).
 2. Chạy Validation trên 3 phiên bản Prompt (v1, v2, v3).
 3. Đánh giá và tự động chọn phiên bản có Macro F1 cao nhất (sau đó là Recall Negative).
 4. Chạy trên Test chính (r1, r2 để đo nhất quán), Test không dấu, và Test lệch.
@@ -83,6 +83,21 @@ def load_inputs(split):
     out = [{"review_id": rid, "text": rv[rid]} for rid in sorted(gd_ids) if rid in rv]
     return out
 
+def sanitize_gemini_schema(s):
+    if not isinstance(s, dict):
+        return s
+    allowed = {'type', 'format', 'description', 'nullable', 'enum', 'properties', 'required', 'items'}
+    cleaned = {}
+    for k, v in s.items():
+        if k in allowed:
+            if k == 'properties' and isinstance(v, dict):
+                cleaned[k] = {pk: sanitize_gemini_schema(pv) for pk, pv in v.items()}
+            elif k == 'items' and isinstance(v, dict):
+                cleaned[k] = sanitize_gemini_schema(v)
+            else:
+                cleaned[k] = v
+    return cleaned
+
 def build_gemini_payload(prompt, schema, text, temperature):
     contents = []
     for ex in prompt.get("few_shot", []):
@@ -90,7 +105,7 @@ def build_gemini_payload(prompt, schema, text, temperature):
         contents.append({"role": "model", "parts": [{"text": ex["model"]}]})
     contents.append({"role": "user", "parts": [{"text": prompt["user_template"].format(review=text)}]})
     
-    clean_schema = {k: v for k, v in schema.items() if not k.startswith("$") and not k.startswith("x-")}
+    clean_schema = sanitize_gemini_schema(schema)
     
     payload = {
         "contents": contents,
@@ -111,12 +126,21 @@ def call_gemini_api(api_key, model, payload):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        res = json.loads(resp.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            res = json.loads(resp.read().decode("utf-8"))
+            try:
+                return res["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                return None
+    except urllib.error.HTTPError as e:
+        err_msg = e.read().decode("utf-8", errors="replace")
         try:
-            return res["candidates"][0]["content"]["parts"][0]["text"]
+            err_json = json.loads(err_msg)
+            msg = err_json.get("error", {}).get("message", err_msg)
+            raise RuntimeError(f"HTTP {e.code} - {msg}") from e
         except Exception:
-            return None
+            raise RuntimeError(f"HTTP {e.code} - {err_msg}") from e
 
 def parse_and_validate(raw, schema):
     if not raw: return None, "error"
@@ -163,7 +187,7 @@ def run_split(api_key, model, split, prompt_version, run_id, max_calls=300):
                     time.sleep(1.0) # Tránh vượt Rate limit
                     break
                 except Exception as e:
-                    print(f"Lỗi gọi API ở mẫu {idx+1}/{len(inputs)}: {e}. Đang thử lại...")
+                    print(f"Lỗi gọi API ở mẫu {idx+1}/{len(inputs)}: {e}. Đang thử lại...", flush=True)
                     time.sleep(3 * (attempt + 1))
                     
         obj, status = parse_and_validate(raw, schema)
@@ -180,7 +204,7 @@ def run_split(api_key, model, split, prompt_version, run_id, max_calls=300):
             "from_cache": from_cache
         })
         if (idx + 1) % 25 == 0 or (idx + 1) == len(inputs):
-            print(f"Tiến độ: {idx+1}/{len(inputs)} (Cache hits: {hits}, API calls: {api_calls})")
+            print(f"Tiến độ: {idx+1}/{len(inputs)} (Cache hits: {hits}, API calls: {api_calls})", flush=True)
             
     tag = f"{split}__{prompt_version}__{run_id}"
     out_csv = DIR_PRED / f"pred_{tag}.csv"
@@ -242,8 +266,12 @@ def evaluate_predictions(gold_dict, pred_rows, split, system_name):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-key", default=os.environ.get("GEMINI_API_KEY"))
-    parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"))
+    parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
     args = parser.parse_args()
+    
+    if args.model in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]:
+        print(f"[Thong bao] Mo hinh '{args.model}' (the he 2.5/1.5) da duoc chot nang cap sang 'gemini-3.8-flash'...", flush=True)
+        args.model = "gemini-3.8-flash"
     
     if not args.api_key:
         print("Vui lòng cung cấp API Key qua --api-key hoặc biến môi trường GEMINI_API_KEY.")

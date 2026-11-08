@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Chạy phân loại Positive/Negative cho một tập, có bộ nhớ đệm kết quả và cấu hình tái lập.
 
-Ví dụ (Gemini thật; cần biến môi trường GEMINI_API_KEY và GEMINI_MODEL):
-  python run_classifier.py --split validation --prompt-version v2 --run-id r1 --max-api-calls 300
+Ví dụ (Gemini thật - chốt sử dụng gemini-3.8-flash thay cho 2.5; cần biến GEMINI_API_KEY):
+  python run_classifier.py --split validation --prompt-version v2 --run-id r1 --max-api-calls 300 --model gemini-3.8-flash
 Chạy thử pipeline không gọi API:  thêm  --mode mock   (kết quả ghi model = MOCK-HEURISTIC, KHÔNG dùng để báo cáo)
 
 Điểm thiết kế:
@@ -62,14 +62,31 @@ def build_contents(prompt, text):
     return contents
 
 
+def sanitize_gemini_schema(s):
+    if not isinstance(s, dict):
+        return s
+    allowed = {'type', 'format', 'description', 'nullable', 'enum', 'properties', 'required', 'items'}
+    cleaned = {}
+    for k, v in s.items():
+        if k in allowed:
+            if k == 'properties' and isinstance(v, dict):
+                cleaned[k] = {pk: sanitize_gemini_schema(pv) for pk, pv in v.items()}
+            elif k == 'items' and isinstance(v, dict):
+                cleaned[k] = sanitize_gemini_schema(v)
+            else:
+                cleaned[k] = v
+    return cleaned
+
+
 def call_gemini(model, prompt, schema, text, temperature):
     """Gọi Gemini và trả về văn bản thô theo SDK `google-genai`.
     Lưu ý: Để chạy tự động không phụ thuộc thư viện ngoài, có thể dùng trực tiếp script `chay_gemini_va_danh_gia.py` (REST API)."""
     from google import genai  # noqa
     from google.genai import types  # noqa
     client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+    clean_schema = sanitize_gemini_schema(schema)
     cfg = dict(system_instruction=prompt["system_instruction"], response_mime_type="application/json",
-               response_json_schema={k: v for k, v in schema.items() if not k.startswith("$") and not k.startswith("x-")})
+               response_json_schema=clean_schema)
     if temperature is not None:
         cfg["temperature"] = temperature
     resp = client.models.generate_content(model=model, contents=build_contents(prompt, text),
@@ -112,7 +129,10 @@ def parse_and_validate(raw, schema):
 
 def main(a):
     prompt, schema = load_prompt(a.prompt_version)
-    model = "MOCK-HEURISTIC" if a.mode == "mock" else (a.model or os.environ.get("GEMINI_MODEL"))
+    model = "MOCK-HEURISTIC" if a.mode == "mock" else (a.model or os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
+    if model in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]:
+        print(f"[Thong bao] Mo hinh '{model}' (the he 2.5/1.5) da duoc chot nang cap sang 'gemini-3.8-flash'...")
+        model = "gemini-3.8-flash"
     if not model:
         sys.exit("Thiếu tên model: đặt --model hoặc biến môi trường GEMINI_MODEL (kiểm tra tên model hiện hành trong tài liệu Gemini).")
     if a.mode == "gemini" and not os.environ.get("GEMINI_API_KEY"):
