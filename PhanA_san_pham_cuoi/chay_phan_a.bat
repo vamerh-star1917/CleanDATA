@@ -38,7 +38,7 @@ echo Da tim thay script: %SCRIPT%
 echo Dang bat dau chay thuc nghiem toan bo cac tap du lieu...
 echo.
 
-python "%SCRIPT%" --api-key "%KEY%" --model "gemini-3.8-flash"
+python "%SCRIPT%" --api-key "%KEY%" --model "gemini-3.8-flash" --prompt-version v3
 
 echo.
 echo ====================================================================
