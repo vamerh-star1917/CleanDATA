@@ -12,6 +12,5 @@
 | **06_reports** | `metrics.csv` (đầy đủ chỉ số trên Validation, Test chính và Test lệch), `phan_tich_loi.md`, các file `errors_*.csv` (đã điền category & notes), `bao_cao_kiem_tra_du_lieu.md`, các ma trận nhầm lẫn PNG |
 
 - **Mô hình & Prompt đánh giá chính thức:** Đã chốt sử dụng **Gemini 3.8 Flash** (`gemini-3.8-flash`) và **Prompt v3** (Phương án B: bỏ qua so sánh v1/v2 trên Validation để tiết kiệm quota, tập trung đánh giá thẳng trên các tập Test).
-- **CRM Workflow n8n tích hợp Gemini 3.8:** File [`CRM_Workflow_GeminiV3.json`](./CRM_Workflow_GeminiV3.json) — Workflow 12 nodes nạp review thô vào Postgres, gọi Gemini 3.8 Flash REST API với Prompt v3, phân loại label + issue_type, sinh response_draft theo mẫu sự cố, phân luồng VIP/Regular và bắn Telegram Alert kèm nút Duyệt/Sửa/Từ chối.
 - **Chạy thực nghiệm Gemini 3.8 (1-click):** Chạy file `chay_phan_a.bat` ở thư mục gốc và nhập API Key (tự động chạy model `gemini-3.8-flash` với Prompt v3 trên Test chính r1/r2, Test không dấu, Test lệch và ghi nhận kết quả vào `06_reports/metrics.csv`).
 - **Tái dựng toàn bộ từ dữ liệu thô:** `bash 05_scripts/run_pipeline.sh <thư mục chứa shopee_reviews_dataset.jsonl và aug_unaccented_reviews.jsonl>`
