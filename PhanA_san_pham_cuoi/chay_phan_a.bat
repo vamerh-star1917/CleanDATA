@@ -3,8 +3,8 @@ setlocal
 cd /d "%~dp0"
 
 echo ====================================================================
-echo    CHUONG TRINH CHAY TU DONG THUC NGHIEM GEMINI 3.8 (PHAN A)
-echo    Mo hinh: Gemini 3.8 Flash | Prompt: v3 (Phuong an B)
+echo    CHUONG TRINH CHAY TU DONG THUC NGHIEM GEMINI (PHAN A)
+echo    Mo hinh: bien moi truong GEMINI_MODEL (mac dinh trong script) | Prompt: v3
 echo ====================================================================
 echo.
 
@@ -38,7 +38,7 @@ echo Da tim thay script: %SCRIPT%
 echo Dang bat dau chay thuc nghiem toan bo cac tap du lieu...
 echo.
 
-python "%SCRIPT%" --api-key "%KEY%" --model "gemini-3.8-flash" --prompt-version v3
+python "%SCRIPT%" --api-key "%KEY%" --prompt-version v3
 
 echo.
 echo ====================================================================

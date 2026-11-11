@@ -65,7 +65,9 @@ def plot_cm(cm, title, path):
     ax.imshow(arr, cmap="Blues")
     for i in range(2):
         for j in range(2):
-            ax.text(j, i, str(arr[i, j]), ha="center", va="center", fontsize=14,
+            row = arr[i].sum()
+            pct = f"\n({arr[i, j] / row:.0%} hàng)" if row else ""
+            ax.text(j, i, f"{arr[i, j]}{pct}", ha="center", va="center", fontsize=12,
                     color="white" if arr[i, j] > arr.max() / 2 else "black")
     ax.set_xticks([0, 1]); ax.set_yticks([0, 1])
     ax.set_xticklabels(["Dự đoán\nnegative", "Dự đoán\npositive"]); ax.set_yticklabels(["Thực tế\nnegative", "Thực tế\npositive"])

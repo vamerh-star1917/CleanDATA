@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Script trọn gói tự động:
-1. Gọi Gemini API (chốt mô hình Gemini 3.8 Flash - gemini-3.8-flash).
-2. Chốt thẳng Prompt v3 (Few-shot + 5 rules xử lý ca khó), bỏ qua so sánh v1/v2 trên Validation theo Phương án B để tiết kiệm tối đa quota API.
-3. Đánh giá trực tiếp Prompt v3 trên Test chính (r1, r2 để đo nhất quán), Test không dấu (đo độ bền), và Test lệch (chấm với 197 nhãn người).
-4. Cập nhật kết quả vào 06_reports/metrics.csv và lưu cache SQLite chống lặp phí.
+"""Chạy Gemini trên các tập Test rồi đánh giá bằng evaluate.py (một nguồn duy nhất cho mọi chỉ số).
+
+Các bước:
+1. Gọi thử 1 lần (preflight): sai tên model, sai key hoặc hết hạn mức sẽ báo ngay, không đốt hàng nghìn lần thử lại.
+2. Chạy Prompt v3 trên Test chính (r1, r2 đo nhất quán), Test không dấu, Test lệch. Cache SQLite chống tính phí lặp.
+3. Gọi evaluate.py: tạo metrics.csv, ma trận nhầm lẫn PNG và errors_*.csv cho TỪNG hệ thống (hai baseline + Gemini).
+4. Bước kế tiếp (thủ công): make_error_sheets.py -> hai người chấm độc lập -> summarize_errors.py.
 
 Cách dùng:
-  python chay_gemini_va_danh_gia.py --api-key YOUR_GEMINI_API_KEY
-  (hoặc set biến môi trường GEMINI_API_KEY)
+  python chay_gemini_va_danh_gia.py --api-key YOUR_GEMINI_API_KEY [--model TEN_MODEL]
+  (hoặc đặt biến môi trường GEMINI_API_KEY, GEMINI_MODEL)
+Tên model KHÔNG bị script tự đổi: hãy đối chiếu với tài liệu hiện hành của Google trước khi chạy.
 """
 import argparse
 import csv
@@ -17,6 +20,7 @@ import math
 import os
 import re
 import sqlite3
+import subprocess
 import sys
 import time
 import urllib.request
@@ -29,7 +33,8 @@ try:
 except Exception:
     pass
 
-ROOT = Path(__file__).resolve().parent.parent
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parent if (HERE.parent / "01_data").exists() else HERE
 DIR_PROMPTS = ROOT / "03_prompt"
 DIR_DATA = ROOT / "01_data"
 DIR_REPORTS = ROOT / "06_reports"
@@ -205,6 +210,13 @@ def run_split(api_key, model, split, prompt_version, run_id, max_calls=300):
         if (idx + 1) % 25 == 0 or (idx + 1) == len(inputs):
             print(f"Tiến độ: {idx+1}/{len(inputs)} (Cache hits: {hits}, API calls: {api_calls})", flush=True)
             
+    if not rows:
+        print(f"[Canh bao] {split}: khong co dong nao de ghi.")
+        return rows
+    from collections import Counter
+    print("Thong ke status:", dict(Counter(x["status"] for x in rows)))
+    if len(rows) < len(inputs):
+        print(f"[Canh bao] Moi chay {len(rows)}/{len(inputs)} mau (dung do --max-calls). Chay lai de tiep tuc tu cache; mau thieu se bi tinh la sai.")
     tag = f"{split}__{prompt_version}__{run_id}"
     out_csv = DIR_PRED / f"pred_{tag}.csv"
     with open(out_csv, mode="w", encoding="utf-8", newline="") as f:
@@ -214,147 +226,77 @@ def run_split(api_key, model, split, prompt_version, run_id, max_calls=300):
     print(f"Đã lưu kết quả -> {out_csv.name}")
     return rows
 
-def evaluate_predictions(gold_dict, pred_rows, split, system_name):
-    n = len(pred_rows)
-    cm = {"neg_neg": 0, "neg_pos": 0, "pos_neg": 0, "pos_pos": 0}
-    for r in pred_rows:
-        rid = r["review_id"]
-        g = gold_dict.get(rid, "")
-        p = r["label_pred"]
-        if g == "negative" and p == "negative": cm["neg_neg"] += 1
-        elif g == "negative" and p == "positive": cm["neg_pos"] += 1
-        elif g == "positive" and p == "negative": cm["pos_neg"] += 1
-        elif g == "positive" and p == "positive": cm["pos_pos"] += 1
-        
-    acc = round((cm["neg_neg"] + cm["pos_pos"]) / n, 4) if n else 0
-    pr_neg = round(cm["neg_neg"] / (cm["neg_neg"] + cm["pos_neg"]), 4) if (cm["neg_neg"] + cm["pos_neg"]) else 0
-    rc_neg = round(cm["neg_neg"] / (cm["neg_neg"] + cm["neg_pos"]), 4) if (cm["neg_neg"] + cm["neg_pos"]) else 0
-    f1_neg = round(2 * pr_neg * rc_neg / (pr_neg + rc_neg), 4) if (pr_neg + rc_neg) else 0
-    
-    pr_pos = round(cm["pos_pos"] / (cm["pos_pos"] + cm["neg_pos"]), 4) if (cm["pos_pos"] + cm["neg_pos"]) else 0
-    rc_pos = round(cm["pos_pos"] / (cm["pos_pos"] + cm["pos_neg"]), 4) if (cm["pos_pos"] + cm["pos_neg"]) else 0
-    f1_pos = round(2 * pr_pos * rc_pos / (pr_pos + rc_pos), 4) if (pr_pos + rc_pos) else 0
-    
-    macro_f1 = round((f1_neg + f1_pos) / 2, 4)
-    lo, hi = wilson(cm["neg_neg"], cm["neg_neg"] + cm["neg_pos"])
-    
-    return {
-        "split": split,
-        "system": system_name,
-        "n": str(n),
-        "n_negative": str(cm["neg_neg"] + cm["neg_pos"]),
-        "n_positive": str(cm["pos_neg"] + cm["pos_pos"]),
-        "accuracy": str(acc),
-        "macro_f1": str(macro_f1),
-        "recall_negative": str(rc_neg),
-        "recall_negative_ci95_lo": str(lo),
-        "recall_negative_ci95_hi": str(hi),
-        "precision_negative": str(pr_neg),
-        "f1_negative": str(f1_neg),
-        "precision_positive": str(pr_pos),
-        "recall_positive": str(rc_pos),
-        "f1_positive": str(f1_pos),
-        "TN_neg_as_neg": str(cm["neg_neg"]),
-        "FN_neg_as_pos": str(cm["neg_pos"]),
-        "FP_pos_as_neg": str(cm["pos_neg"]),
-        "TP_pos_as_pos": str(cm["pos_pos"]),
-        "invalid_or_missing": "0",
-        "invalid_policy": "wrong"
-    }
+def preflight(api_key, model, prompt, schema):
+    """Gọi thử 1 lần trước khi chạy hàng loạt."""
+    payload = build_gemini_payload(prompt, schema, "Hàng đẹp, giao nhanh, đóng gói cẩn thận.", None)
+    try:
+        raw = call_gemini_api(api_key, model, payload)
+    except Exception as e:
+        print(f"[LOI] Goi thu that bai voi model '{model}': {e}")
+        print("Kiem tra: ten model, API key, han muc. Chua chay mau nao.")
+        sys.exit(2)
+    _, status = parse_and_validate(raw, schema)
+    if status != "ok":
+        print(f"[LOI] Goi thu tra ve dinh dang khong hop le (status={status}). Chua chay mau nao.")
+        sys.exit(2)
+    print(f"Goi thu thanh cong (model={model}).")
+
+
+def run_evaluation():
+    """Chạy evaluate.py: metrics.csv + ma trận nhầm lẫn PNG + errors_*.csv cho mọi hệ thống."""
+    ev = next((c for c in (HERE / "evaluate.py", ROOT / "05_scripts" / "evaluate.py") if c.exists()), None)
+    if ev is None:
+        print("[LOI] Khong tim thay evaluate.py. Chay tay: python evaluate.py --pred ... --human ...")
+        return
+    cmd = [sys.executable, str(ev),
+           "--pred", str(DIR_PRED / "pred_*.csv"),
+           "--human", str(ROOT / "04_labeling" / "human_labels_final.csv"),
+           "--out", str(DIR_REPORTS)]
+    print("\nDang danh gia:", " ".join(cmd))
+    r = subprocess.run(cmd)
+    if r.returncode != 0:
+        print("[LOI] evaluate.py that bai (ma %s). Xem thong bao phia tren." % r.returncode)
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-key", default=os.environ.get("GEMINI_API_KEY"))
     parser.add_argument("--model", default=os.environ.get("GEMINI_MODEL", "gemini-3.8-flash"))
-    parser.add_argument("--prompt-version", default="v3", choices=["v1", "v2", "v3"], help="Phiên bản prompt chốt đánh giá (mặc định: v3)")
-    parser.add_argument("--include-val", action="store_true", default=False, help="Chạy cả tập Validation (mặc định False theo Phương án B để tiết kiệm quota)")
+    parser.add_argument("--prompt-version", default="v3", choices=["v1", "v2", "v3"], help="Phiên bản prompt (mặc định: v3)")
+    parser.add_argument("--include-val", action="store_true", default=False, help="Chạy thêm Validation (mặc định tắt để tiết kiệm quota)")
+    parser.add_argument("--skip-eval", action="store_true", default=False, help="Chỉ chạy dự đoán, không gọi evaluate.py")
     args = parser.parse_args()
-    
-    if args.model in ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-1.5-flash", "gemini-1.5-pro"]:
-        print(f"[Thong bao] Mo hinh '{args.model}' (the he 2.5/1.5) da duoc chot nang cap sang 'gemini-3.8-flash'...", flush=True)
-        args.model = "gemini-3.8-flash"
-    
+
     if not args.api_key:
         print("Vui lòng cung cấp API Key qua --api-key hoặc biến môi trường GEMINI_API_KEY.")
         sys.exit(1)
-        
-    print(f"=== BẮT ĐẦU CHẠY THỬ NGHIỆM GEMINI ({args.model}) ===")
-    best_ver = args.prompt_version
-    metrics_entries = []
-    
-    # 1. Chạy Validation nếu có cờ --include-val
+
+    ver = args.prompt_version
+    prompt, schema = load_prompt(ver)
+    print(f"=== CHAY GEMINI ({args.model}), Prompt {ver} ===")
+    preflight(args.api_key, args.model, prompt, schema)
+
     if args.include_val:
-        print(f"\n[Validation] Đang chạy đánh giá Prompt {best_ver} trên tập Validation (150 mẫu)...")
-        rows_val = run_split(args.api_key, args.model, "validation", best_ver, "r1")
-        gold_val = {}
-        with open(DIR_DATA / "review_gold.csv", encoding="utf-8") as f:
-            for r in csv.DictReader(f):
-                if r["split"] == "validation":
-                    gold_val[r["review_id"]] = r["label_original"]
-        entry_val = evaluate_predictions(gold_val, rows_val, "validation", f"gemini_{best_ver}")
-        metrics_entries.append(entry_val)
-        print(f"Validation ({best_ver}): Macro F1 = {float(entry_val['macro_f1']):.4f} | Recall Neg = {float(entry_val['recall_negative']):.4f} | Acc = {entry_val['accuracy']}")
+        print("\n[Validation] 150 mau...")
+        run_split(args.api_key, args.model, "validation", ver, "r1")
     else:
-        print(f"\n[Phuong an B] Da chot thang Prompt {best_ver.upper()} (Few-shot + 5 rules ca kho), bo qua so sanh Validation de tiet kiem toi da 450 API calls!")
-        print(f"Tien hanh danh gia truc tiep Prompt {best_ver.upper()} tren cac tap Test...")
-    
-    # 2. Chạy trên test_main (r1 và r2 để đo nhất quán A10)
-    print(f"\n[1/4] Chạy Test chính (300 mẫu) - Lần 1 (r1)...")
-    rows_tm_r1 = run_split(args.api_key, args.model, "test_main", best_ver, "r1")
-    print(f"\n[2/4] Chạy Test chính (300 mẫu) - Lần 2 (r2, đo tính nhất quán)...")
-    rows_tm_r2 = run_split(args.api_key, args.model, "test_main", best_ver, "r2")
-    
-    # 3. Chạy trên test_unaccented (đo độ bền)
-    print(f"\n[3/4] Chạy Test không dấu (300 mẫu, đo độ bền)...")
-    rows_unacc = run_split(args.api_key, args.model, "test_unaccented", best_ver, "r1")
-    
-    # 4. Chạy trên test_skew (chấm với 197 nhãn người)
-    print(f"\n[4/4] Chạy Test lệch (197 mẫu, chấm với nhãn người gán độc lập)...")
-    rows_skew = run_split(args.api_key, args.model, "test_skew", best_ver, "r1")
-    
-    # Đánh giá các tập Test
-    gold_tm = {}
-    with open(DIR_DATA / "review_gold.csv", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            if r["split"] == "test_main":
-                gold_tm[r["review_id"]] = r["label_original"]
-                
-    gold_human = {}
-    with open(ROOT / "04_labeling" / "human_labels_final.csv", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            gold_human[r["review_id"]] = r["label_human"]
-            
-    metrics_entries.append(evaluate_predictions(gold_tm, rows_tm_r1, "test_main", f"gemini_{best_ver}_r1"))
-    metrics_entries.append(evaluate_predictions(gold_tm, rows_tm_r2, "test_main", f"gemini_{best_ver}_r2"))
-    metrics_entries.append(evaluate_predictions(gold_tm, rows_unacc, "test_unaccented", f"gemini_{best_ver}"))
-    metrics_entries.append(evaluate_predictions(gold_human, rows_skew, "test_skew", f"gemini_{best_ver}"))
-    
-    # Cập nhật vào metrics.csv
-    existing_rows = []
-    fieldnames = []
-    with open(DIR_REPORTS / "metrics.csv", encoding="utf-8") as f:
-        r = csv.DictReader(f)
-        fieldnames = r.fieldnames
-        existing_rows = list(r)
-        
-    for new_e in metrics_entries:
-        # Nếu đã có thì thay thế, chưa có thì thêm
-        found = False
-        for idx, ex in enumerate(existing_rows):
-            if ex["split"] == new_e["split"] and ex["system"] == new_e["system"]:
-                existing_rows[idx] = new_e
-                found = True
-                break
-        if not found:
-            existing_rows.append(new_e)
-            
-    with open(DIR_REPORTS / "metrics.csv", mode="w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=fieldnames)
-        w.writeheader()
-        w.writerows(existing_rows)
-        
-    print("\n=== HOÀN TẤT TOÀN BỘ CÁC THỰC NGHIỆM! ===")
-    print("Toàn bộ các chỉ số đo lường đã được cập nhật vào final/06_reports/metrics.csv")
+        print(f"\nBo qua Validation (Prompt {ver} duoc chon truoc, KHONG phai ket qua so sanh v1/v2/v3: phai khai bao dung nhu vay trong bao cao).")
+
+    print("\n[1/4] Test chinh - lan 1 (r1)")
+    run_split(args.api_key, args.model, "test_main", ver, "r1")
+    print("\n[2/4] Test chinh - lan 2 (r2, do nhat quan)")
+    run_split(args.api_key, args.model, "test_main", ver, "r2")
+    print("\n[3/4] Test khong dau (do do ben)")
+    run_split(args.api_key, args.model, "test_unaccented", ver, "r1")
+    print("\n[4/4] Test lech (cham bang nhan nguoi)")
+    run_split(args.api_key, args.model, "test_skew", ver, "r1")
+
+    if not args.skip_eval:
+        run_evaluation()
+    print("\n=== XONG ===")
+    print("Ket qua: 06_reports/metrics.csv, confusion_*.png, errors_*.csv, consistency.csv")
+    print("Buoc ke tiep: python make_error_sheets.py  (tao phieu phan tich loi cho 2 nguoi cham)")
+
 
 if __name__ == "__main__":
     main()
